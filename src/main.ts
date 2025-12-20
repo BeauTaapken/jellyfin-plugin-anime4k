@@ -26,53 +26,116 @@ const PRESETS: Anime4KPreset[] = [
   { label: 'Mode Simple UL', obj: Anime4KJS.ANIME4KJS_SIMPLE_UL_2X },
 ];
 
-function waitForDirectChild(parent: HTMLElement, className: string, callback: (node: HTMLElement) => void) {
-  for (const child of parent.children) {
-    if (child instanceof HTMLElement && child.classList.contains(className)) {
-      callback(child);
-      return;
-    }
-  }
+let canvas: HTMLCanvasElement | undefined;
+let upscaler: Anime4KJS.VideoUpscaler | undefined;
 
-  const observer = new MutationObserver((mutations) => {
-    for (const { addedNodes } of mutations) {
-      for (const node of addedNodes) {
-        if (
-          node instanceof HTMLElement &&
-          node.nodeType === 1 && // element node
-          node.classList.contains(className) &&
-          node.parentElement === parent
-        ) {
-          observer.disconnect();
-          callback(node);
-          return;
-        }
-      }
-    }
-  });
+function attachCanvas(video: HTMLVideoElement): void {
+  if (canvas && upscaler) return;
 
-  observer.observe(parent, { childList: true });
+  canvas = document.createElement('canvas');
+  canvas.classList.add('htmlvideoplayer');
+  canvas.style.height = 'auto';
+  // move the video out of view instead of disabling it because otherwise the subtitles are automatically turned off
+  video.style.position = 'absolute';
+  video.style.left = '-9999px';
+  video.before(canvas);
+
+  upscaler = new Anime4KJS.VideoUpscaler(30, Anime4KJS.ANIME4K_LOWEREND_MODE_A_FAST);
+  upscaler.attachVideo(video, canvas);
 }
 
-function init() {
-  console.log('GLSL loaded');
+function upscalerStart(): void {
+  console.log('anime4k: start');
+  upscaler?.start();
+}
 
-  waitForDirectChild(document.body, 'videoPlayerContainer', (videoContainer) => {
-    const video: HTMLVideoElement | null = videoContainer.querySelector(':scope > video.htmlvideoplayer');
-    if (!video) return;
+function upscalerStop(): void {
+  console.log('anime4k: stop');
+  upscaler?.stop();
+}
 
-    const canvas = document.createElement('canvas');
-    canvas.classList.add('htmlvideoplayer');
-    canvas.style.height = 'auto';
-    // move the video out of view instead of disabling it because otherwise the subtitles are automatically turned off
-    video.style.position = 'absolute';
-    video.style.left = '-9999px';
-    video.before(canvas);
+function upscalerPause(): void {
+  console.log('anime4k: pause');
+  upscaler?.stop();
+  if (canvas) canvas.style.visibility = 'visible';
+}
 
-    const upscaler = new Anime4KJS.VideoUpscaler(30, Anime4KJS.ANIME4KJS_SIMPLE_M_2X);
-    upscaler.attachVideo(video, canvas);
-    upscaler.start();
-  });
+function upscalerLoadFrame(): void {
+  console.log('anime4k: loadframe');
+  upscalerStart();
+  upscalerPause();
+}
+
+function isVideoPlayer(element: HTMLElement | EventTarget | null | undefined): boolean {
+  return element instanceof HTMLVideoElement && element.classList.contains('htmlvideoplayer');
+}
+
+function isVideoPlaying(video: HTMLVideoElement) {
+  return !!(video.currentTime > 0 && !video.paused && !video.ended && video.readyState > 2);
+}
+
+function init(): void {
+  if (!Anime4KJS.VideoUpscaler.isSupported()) {
+    console.error('Video upscaling is not supported!');
+    return;
+  }
+
+  document.addEventListener(
+    'play',
+    (e) => {
+      const element = e.target;
+      if (element instanceof HTMLVideoElement && element.classList.contains('htmlvideoplayer')) {
+        attachCanvas(element);
+        upscalerStart();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'pause',
+    (e) => {
+      if (isVideoPlayer(e.target)) {
+        upscalerPause();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'ended',
+    (e) => {
+      if (isVideoPlayer(e.target)) {
+        upscalerStop();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'seeking',
+    (e) => {
+      if (isVideoPlayer(e.target)) {
+        upscalerPause();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'seeked',
+    (e) => {
+      if (isVideoPlayer(e.target)) {
+        const video = e.target as HTMLVideoElement;
+        if (isVideoPlaying(video)) {
+          upscalerStart();
+        } else {
+          upscalerLoadFrame();
+        }
+      }
+    },
+    true,
+  );
 }
 
 init();
