@@ -1,0 +1,39 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 'latest'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin deploy
+
+          git worktree add deploy-worktree deploy
+
+          rm -rf deploy-worktree/*
+          cp -r dist/* deploy-worktree/
+
+          cd deploy-worktree
+          git add .
+          git commit -m "deploy"
+          git push origin deploy --force
