@@ -2,7 +2,7 @@ import throttle from 'lodash.throttle';
 import * as Anime4KJS from '../Anime4KJS/src';
 import { EventType } from '../Jellyfin/src/constants/eventType';
 import Events from '../Jellyfin/src/utils/events';
-import { PlayerButtonTemplate } from './components/player-button-template';
+import { PlayerButton } from './components/player-button';
 import { initVideoListeners } from './upscaler';
 
 function init(): void {
@@ -26,7 +26,7 @@ function init(): void {
       const firstButton = osdControls.querySelector(':scope > .buttons > button');
       if (!firstButton) return;
 
-      const playerButton = new PlayerButtonTemplate('anime4kButton', osdControls).render();
+      const playerButton = new PlayerButton('anime4kButton', osdControls).render();
       if (playerButton) firstButton.before(playerButton);
     }, 1000),
   );
