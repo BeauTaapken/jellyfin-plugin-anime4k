@@ -5,8 +5,9 @@ export default defineConfig(({ mode }) => {
     build: {
       lib: {
         entry: 'src/main.ts',
-        formats: ['es', 'iife'],
+        formats: ['iife'],
         name: 'Anime4KPlugin',
+        fileName: (_, entryName) => `${entryName}.js`,
       },
     },
     esbuild: {
