@@ -1,92 +1,141 @@
 import * as Anime4KJS from '../Anime4KJS/src';
+import { PRESETS, type Anime4KPreset } from './presets';
 import { isPlaying, isTargetVideo } from './utils';
 
-type UpscalerState = {
+type UpscalerDetachedState = {
+  kind: 'detached';
   video?: HTMLVideoElement;
-  canvas?: HTMLCanvasElement;
-  upscaler?: Anime4KJS.VideoUpscaler;
+  selectedPreset: Anime4KPreset;
+  targetFps: number;
 };
 
-const state: UpscalerState = {};
+type UpscalerAttachedState = {
+  kind: 'attached';
+  video: HTMLVideoElement;
+  canvas: HTMLCanvasElement;
+  upscaler: Anime4KJS.VideoUpscaler;
+  selectedPreset: Anime4KPreset;
+  targetFps: number;
+};
 
-export function attach(video: HTMLVideoElement): void {
-  if (video === state.video) {
-    return;
-  } else if (state.video) {
-    // detach if upscaler state exists but attached to a different video
-    detach();
+type UpscalerState = UpscalerDetachedState | UpscalerAttachedState;
+
+let state: UpscalerState = {
+  kind: 'detached',
+  video: undefined,
+  selectedPreset: PRESETS['Disabled'],
+  targetFps: 30,
+};
+
+export function setPreset(preset: Anime4KPreset): void {
+  console.log('anime4k: preset', preset);
+
+  state.selectedPreset = preset;
+
+  detach();
+
+  // reattach only if enabled and we have a video
+  if (preset !== PRESETS['Disabled'] && state.video) {
+    attachAndSync(state.video);
   }
+}
+
+export function getSelectedPreset(): Anime4KPreset {
+  return state.selectedPreset;
+}
+
+function attach(): void {
+  if (state.kind === 'attached' || !state.video || state.selectedPreset === PRESETS['Disabled']) return;
+  console.log('anime4k: attach');
 
   const canvas = document.createElement('canvas');
   canvas.classList.add('htmlvideoplayer');
   canvas.style.height = 'auto';
+
   // move the video out of view instead of disabling it, because otherwise the subtitles are automatically turned off
-  video.style.position = 'absolute';
-  video.style.left = '-9999px';
-  video.before(canvas);
+  state.video.style.position = 'absolute';
+  state.video.style.left = '-9999px';
+  state.video.before(canvas);
 
-  const TARGET_FPS = 30;
-  const upscaler = new Anime4KJS.VideoUpscaler(TARGET_FPS, Anime4KJS.ANIME4K_LOWEREND_MODE_A_FAST);
-  upscaler.attachVideo(video, canvas);
+  const upscaler = new Anime4KJS.VideoUpscaler(state.targetFps, state.selectedPreset);
+  upscaler.attachVideo(state.video, canvas);
 
+  state = {
+    ...state,
+    kind: 'attached',
+    video: state.video,
+    canvas,
+    upscaler,
+  };
+}
+
+function detach(): void {
+  if (state.kind !== 'attached') return;
+  console.log('anime4k: detach');
+
+  state.upscaler.detachVideo();
+  state.canvas.remove();
+  // restore video
+  state.video.style.removeProperty('position');
+  state.video.style.removeProperty('left');
+
+  state = {
+    ...state,
+    kind: 'detached',
+  };
+}
+
+function attachAndSync(video: HTMLVideoElement): void {
   state.video = video;
-  state.canvas = canvas;
-  state.upscaler = upscaler;
+  attach();
+  if (isPlaying(video)) start();
+  else loadSingleFrame();
 }
 
-export function detach() {
-  if (!state.video) return;
-  state.upscaler?.detachVideo();
-  state.canvas?.remove();
-  state.video?.style.removeProperty('position');
-  state.video?.style.removeProperty('left');
-}
-
-export function start(): void {
+function start(): void {
+  if (state.kind !== 'attached') return;
   console.log('anime4k: start');
-  state.upscaler?.start();
+  state.upscaler.start();
+  state.canvas.style.visibility = 'visible';
 }
 
-export function stop(): void {
+function stop(): void {
+  if (state.kind !== 'attached') return;
   console.log('anime4k: stop');
-  state.upscaler?.stop();
+  state.upscaler.stop();
 }
 
-export function pause(): void {
+function pause(): void {
+  if (state.kind !== 'attached') return;
   console.log('anime4k: pause');
-  state.upscaler?.stop();
-  // upscaler.stop() hides the canvas entirely, so we have to revert it
-  state.canvas?.style.setProperty('visibility', 'visible');
+  state.upscaler.stop();
+  state.canvas.style.visibility = 'visible';
 }
 
-export function loadSingleFrame(): void {
+function loadSingleFrame(): void {
+  if (state.kind !== 'attached') return;
   console.log('anime4k: loadsingleframe');
   start();
   pause();
 }
 
-const onVideoEvent = (type: string, listener: (e: Event, video: HTMLVideoElement) => void) => {
+const onVideoEvent = (type: string, listener: (video: HTMLVideoElement) => void) => {
   document.addEventListener(
     type,
     (e) => {
       if (!isTargetVideo(e.target)) return;
-      listener(e, e.target);
+      listener(e.target);
     },
     true,
   );
 };
 
 export function initVideoListeners(): void {
-  onVideoEvent('play', (_, video) => {
-    attach(video);
-    start();
-  });
+  onVideoEvent('play', attachAndSync);
 
-  onVideoEvent('pause', () => pause());
-  onVideoEvent('ended', () => stop());
-  onVideoEvent('seeking', () => pause());
-  onVideoEvent('seeked', (_, video) => {
-    if (isPlaying(video)) start();
-    else loadSingleFrame();
-  });
+  onVideoEvent('pause', pause);
+  onVideoEvent('ended', stop);
+
+  onVideoEvent('seeking', pause);
+  onVideoEvent('seeked', attachAndSync);
 }
