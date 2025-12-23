@@ -22,7 +22,7 @@ export class PlayerButton {
       }));
 
       actionsheet.show({
-        title: 'Presets',
+        title: 'Anime4K Presets',
         items: menuItems,
         callback: (preset) => {
           setPreset(PRESETS[preset]);
