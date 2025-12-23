@@ -5,24 +5,38 @@ on:
   push:
     branches: [main]
 
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # required to push to github
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           submodules: true
 
-      - uses: actions/setup-node@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
         with:
           node-version: 'latest'
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run build
+      - name: Build
+        run: npm run build
 
-      - run: |
+      - name: Deploy
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -35,5 +49,5 @@ jobs:
 
           cd deploy-worktree
           git add .
-          git commit -m "deploy"
-          git push origin deploy --force
+          git commit -m "deploy" || echo "no changes"
+          git push origin deploy
