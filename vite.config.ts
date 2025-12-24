@@ -4,6 +4,7 @@ import { run } from 'vite-plugin-run';
 export default defineConfig(({ mode }) => {
   return {
     build: {
+      minify: mode === 'production',
       lib: {
         entry: 'src/main.ts',
         formats: ['iife'],
