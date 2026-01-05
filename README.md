@@ -20,3 +20,31 @@ Use a plugin that allows JavaScript injection (such as
   document.head.appendChild(script);
 })();
 ```
+
+## Development Setup
+
+1. Clone the repository:
+
+```sh
+git clone --no-recurse-submodules https://github.com/chip44/jellyfin-plugin-anime4k
+cd jellyfin-plugin-anime4k
+git submodule update --init --depth=1
+```
+
+2. Install dependencies:
+
+```sh
+npm i
+```
+
+3. Run dev server:
+
+```sh
+npm run dev
+```
+
+4. In the injected JavaScript snippet, point the URL to your dev server:
+
+```javascript
+script.src = 'http://localhost:5173/@fs/dist/main.js';
+```
