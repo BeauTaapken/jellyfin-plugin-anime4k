@@ -1,4 +1,7 @@
+# This is a fork from chip44's jellyfin anime4k plugin, this is just for myself to keep versioning easier for myself
+
 # Jellyfin Anime4K Plugin
+
 
 A [Jellyfin](https://jellyfin.org/) plugin that adds support for [Anime4K](https://github.com/bloc97/Anime4K) shaders in
 the Jellyfin web video player.
@@ -15,7 +18,7 @@ Use a plugin that allows JavaScript injection (such as
 (function () {
   'use strict';
   const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/gh/chip44/jellyfin-plugin-anime4k@deploy/main.js';
+  script.src = 'https://cdn.jsdelivr.net/gh/BeauTaapken/jellyfin-plugin-anime4k@deploy/main.js';
   script.type = 'text/javascript';
   document.head.appendChild(script);
 })();
